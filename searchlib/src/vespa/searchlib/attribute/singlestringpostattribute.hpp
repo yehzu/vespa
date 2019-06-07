@@ -3,6 +3,9 @@
 #pragma once
 
 #include <vespa/searchlib/attribute/singlestringpostattribute.h>
+#include <vespa/searchlib/attribute/enumstore.h>
+#include <vespa/searchlib/attribute/enumcomparator.h>
+#include <vespa/searchlib/attribute/singlestringattribute.hpp>
 
 namespace search {
 
