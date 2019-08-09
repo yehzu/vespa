@@ -159,8 +159,15 @@ public class CapacityCheckerTester {
     void createNodes(int childrenPerHost, int numDistinctChildren, List<NodeResources> childResources,
                      int numHosts, NodeResources hostExcessCapacity, int hostExcessIps,
                      int numEmptyHosts, NodeResources emptyHostExcessCapacity, int emptyHostExcessIps) {
-        cleanRepository();
         List<NodeModel> possibleChildren = createDistinctChildren(numDistinctChildren, childResources);
+        createNodes(childrenPerHost, possibleChildren,
+                numHosts, hostExcessCapacity, hostExcessIps,
+                numEmptyHosts, emptyHostExcessCapacity, emptyHostExcessIps);
+    }
+    void createNodes(int childrenPerHost, List<NodeModel> possibleChildren,
+                     int numHosts, NodeResources hostExcessCapacity, int hostExcessIps,
+                     int numEmptyHosts, NodeResources emptyHostExcessCapacity, int emptyHostExcessIps) {
+        cleanRepository();
 
         List<Node> nodes = new ArrayList<>();
         nodes.addAll(createHostsWithChildren(childrenPerHost, possibleChildren, numHosts, hostExcessCapacity, hostExcessIps));
