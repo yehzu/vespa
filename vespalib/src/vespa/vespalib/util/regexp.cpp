@@ -13,19 +13,28 @@ LOG_SETUP(".vespalib.util.regexp");
 namespace vespalib {
 
 Regexp::Flags::Flags() :
+#ifdef __linux__
     _flags(RE_SYNTAX_POSIX_EXTENDED)
+#else
+    _flags(REG_EXTENDED)
+#endif
 { }
 
 Regexp::Flags &
 Regexp::Flags::enableICASE()
 {
+#ifdef __linux__
     _flags |= RE_ICASE;
+#else
+    _flags |= REG_ICASE;
+#endif
     return *this;
 }
 
 bool
 Regexp::compile(vespalib::stringref re, Flags flags)
 {
+#ifdef __linux__
     re_set_syntax(flags.flags());
     regex_t *preg = (regex_t *)_data;
     preg->translate = NULL;
@@ -42,6 +51,18 @@ Regexp::compile(vespalib::stringref re, Flags flags)
         return false;
     }
     return true;
+#else
+    regex_t *preg = (regex_t *)_data;
+    vespalib::string re2(re);
+    int result = regcomp(preg, re2.c_str(), flags.flags());
+    if (result != 0) {
+        char buf[1024];
+        regerror(result, preg, buf, 1024);
+        LOG(warning, "invalid regexp '%s': %s", re2.c_str(), buf);
+        return false;
+    }
+    return true;
+#endif
 }
 
 
@@ -56,12 +77,18 @@ bool
 Regexp::match(vespalib::stringref s) const
 {
     if ( ! valid() ) { return false; }
+#ifdef __linux__
     regex_t *preg = const_cast<regex_t *>(static_cast<const regex_t *>(_data));
     int pos(re_search(preg, s.data(), s.size(), 0, s.size(), NULL));
     if (pos < -1) {
         throw IllegalArgumentException(make_string("re_search failed with code(%d)", pos));
     }
     return pos >= 0;
+#else
+    vespalib::string s2(s);
+    const regex_t *preg = (const regex_t *)_data;
+    return (regexec(preg, s2.c_str(), 0, NULL, 0) == 0);
+#endif
 }
 
 Regexp::~Regexp()

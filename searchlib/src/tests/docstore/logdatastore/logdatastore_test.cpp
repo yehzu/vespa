@@ -279,6 +279,7 @@ TEST("testTruncatedIdxFile"){
     DummyFileHeaderContext fileHeaderContext;
     vespalib::ThreadStackExecutor executor(1, 128*1024);
     MyTlSyncer tlSyncer;
+    truncate("bug-7257706-truncated/1422358701368384000.idx", 3830);
     {
         // Files comes from the 'growing test'.
         LogDataStore datastore(executor, TEST_PATH("bug-7257706"), config, GrowStrategy(),

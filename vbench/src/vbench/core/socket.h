@@ -10,6 +10,9 @@
 #include <vespa/vespalib/net/crypto_engine.h>
 #include <vespa/vespalib/net/sync_crypto_socket.h>
 #include <memory>
+#ifdef __APPLE__
+#include <poll.h>
+#endif
 
 namespace vbench {
 
@@ -47,17 +50,49 @@ struct ServerSocket {
     using CryptoEngine = vespalib::CryptoEngine;
     using SyncCryptoSocket = vespalib::SyncCryptoSocket;
     vespalib::ServerSocket server_socket;
-    ServerSocket() : server_socket(0) {}
+#ifdef __APPLE__
+    bool closed;
+#endif
+    ServerSocket() : server_socket(0)
+#ifdef __APPLE__
+                   , closed(false)
+#endif
+    {}
     int port() const { return server_socket.address().port(); }
     Stream::UP accept(CryptoEngine &crypto) {
+#ifdef __APPLE__
+        server_socket.set_blocking(false);
+        while (!closed) {
+            pollfd fds;
+            fds.fd = server_socket.get_fd();
+            fds.events = POLLIN;
+            fds.revents = 0;
+            int res = poll(&fds, 1, 10);
+            if (res < 1 || fds.revents == 0) {
+                continue;
+            }
+            break;
+        }
+        if (closed) {
+            return Stream::UP();
+        }
+#endif
         vespalib::SocketHandle handle = server_socket.accept();
+#ifdef __APPLE__
+        handle.set_blocking(true);
+#endif
         if (handle.valid()) {
             return std::make_unique<Socket>(SyncCryptoSocket::create(crypto, std::move(handle), true));
         } else {
             return Stream::UP();
         }
     }
-    void close() { server_socket.shutdown(); }
+    void close() {
+#ifdef __APPLE__
+        closed = true;
+#endif
+        server_socket.shutdown();
+    }
 };
 
 } // namespace vbench
