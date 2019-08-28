@@ -2,7 +2,6 @@
 package com.yahoo.vespa.config.server.tenant;
 
 import com.yahoo.component.Version;
-import com.yahoo.concurrent.StripedExecutor;
 import com.yahoo.config.FileReference;
 import com.yahoo.config.provision.ApplicationId;
 import com.yahoo.config.provision.TenantName;
@@ -20,13 +19,11 @@ import com.yahoo.vespa.config.server.application.ApplicationMapper;
 import com.yahoo.vespa.config.server.application.ApplicationSet;
 import com.yahoo.vespa.config.server.application.TenantApplications;
 import com.yahoo.vespa.config.server.application.VersionDoesNotExistException;
-import com.yahoo.vespa.config.server.host.HostRegistries;
 import com.yahoo.vespa.config.server.host.HostRegistry;
 import com.yahoo.vespa.config.server.host.HostValidator;
 import com.yahoo.vespa.config.server.monitoring.MetricUpdater;
 import com.yahoo.vespa.config.server.monitoring.Metrics;
 import com.yahoo.vespa.config.server.rpc.ConfigResponseFactory;
-import com.yahoo.vespa.curator.Curator;
 import com.yahoo.vespa.curator.Lock;
 
 import java.time.Clock;
@@ -35,7 +32,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 
 import static java.util.stream.Collectors.toSet;
 
@@ -59,19 +55,17 @@ public class TenantRequestHandler implements RequestHandler, ReloadHandler, Host
     private final Clock clock = Clock.systemUTC();
     private final TenantApplications applications;
 
-    public TenantRequestHandler(Metrics metrics,
-                                TenantName tenant,
-                                List<ReloadListener> reloadListeners,
-                                ConfigResponseFactory responseFactory,
-                                GlobalComponentRegistry registry) { // TODO jvenstad: Merge this class with TenantApplications, and straighten this out.
+    TenantRequestHandler(Metrics metrics,
+                         TenantName tenant,
+                         List<ReloadListener> reloadListeners,
+                         GlobalComponentRegistry componentRegistry) { // TODO jvenstad: Merge this class with TenantApplications, and straighten this out.
         this.metrics = metrics;
         this.tenant = tenant;
         this.reloadListeners = List.copyOf(reloadListeners);
-        this.responseFactory = responseFactory;
+        this.responseFactory = ConfigResponseFactory.create(componentRegistry.getConfigserverConfig());
         this.tenantMetricUpdater = metrics.getOrCreateMetricUpdater(Metrics.createDimensions(tenant));
-        this.hostRegistry = registry.getHostRegistries().createApplicationHostRegistry(tenant);
-        this.applications = TenantApplications.create(registry, this, tenant);
-
+        this.hostRegistry = componentRegistry.getHostRegistries().createApplicationHostRegistry(tenant);
+        this.applications = TenantApplications.create(componentRegistry, this, tenant);
     }
 
     /**

@@ -1,6 +1,7 @@
 // Copyright 2017 Yahoo Holdings. Licensed under the terms of the Apache 2.0 license. See LICENSE in the project root.
 package com.yahoo.vespa.config.server.tenant;
 
+import com.yahoo.cloud.config.ConfigserverConfig;
 import com.yahoo.component.Version;
 import com.yahoo.config.ConfigInstance;
 import com.yahoo.config.SimpletypesConfig;
@@ -30,8 +31,6 @@ import com.yahoo.vespa.config.server.deploy.ZooKeeperDeployer;
 import com.yahoo.vespa.config.server.model.TestModelFactory;
 import com.yahoo.vespa.config.server.modelfactory.ModelFactoryRegistry;
 import com.yahoo.vespa.config.server.monitoring.MetricUpdater;
-import com.yahoo.vespa.config.server.monitoring.Metrics;
-import com.yahoo.vespa.config.server.rpc.UncompressedConfigResponseFactory;
 import com.yahoo.vespa.config.server.session.RemoteSession;
 import com.yahoo.vespa.config.server.session.SessionZooKeeperClient;
 import com.yahoo.vespa.curator.Curator;
@@ -46,7 +45,6 @@ import org.xml.sax.SAXException;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -57,6 +55,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.yahoo.cloud.config.ConfigserverConfig.PayloadCompressionType.Enum.UNCOMPRESSED;
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -89,14 +88,15 @@ public class TenantRequestHandlerTest {
         curator = new MockCurator();
 
         feedApp(app1, 1, defaultApp(), false);
-        Metrics sh = Metrics.createTestMetrics();
-        List<ReloadListener> listeners = new ArrayList<>();
-        listeners.add(listener);
         componentRegistry = new TestComponentRegistry.Builder()
                 .curator(curator)
+                .configServerConfig(new ConfigserverConfig(new ConfigserverConfig.Builder()
+                                                                   .payloadCompressionType(UNCOMPRESSED)
+                                                                   .configDefinitionsDir(tempFolder.newFolder().getAbsolutePath())
+                                                                   .configServerDBDir(tempFolder.newFolder().getAbsolutePath())))
                 .modelFactoryRegistry(createRegistry())
                 .build();
-        server = new TenantRequestHandler(sh, tenant, listeners, new UncompressedConfigResponseFactory(), componentRegistry);
+        server = new TenantRequestHandler(componentRegistry.getMetrics(), tenant, List.of(listener), componentRegistry);
     }
 
     private void feedApp(File appDir, long sessionId, ApplicationId appId, boolean  internalRedeploy) throws IOException {
@@ -134,29 +134,27 @@ public class TenantRequestHandlerTest {
                 new TestModelFactory(new Version(3, 2, 1))));
     }
 
-    private <T extends ConfigInstance> T resolve(Class<T> clazz,
-                                                 TenantRequestHandler tenantRequestHandler,
+    @SuppressWarnings("unchecked")
+    private <T extends ConfigInstance> T resolve(TenantRequestHandler tenantRequestHandler,
                                                  ApplicationId appId,
-                                                 Version vespaVersion,
-                                                 String configId) {
-        ConfigResponse response = getConfigResponse(clazz, tenantRequestHandler, appId, vespaVersion, configId);
-        return ConfigPayload.fromUtf8Array(response.getPayload()).toInstance(clazz, configId);
+                                                 Version vespaVersion) {
+        ConfigResponse response = getConfigResponse(tenantRequestHandler, appId, vespaVersion);
+        return ConfigPayload.fromUtf8Array(response.getPayload()).toInstance((Class<T>) SimpletypesConfig.class, "");
     }
 
-    private <T extends ConfigInstance> ConfigResponse getConfigResponse(Class<T> clazz,
-                                                                        TenantRequestHandler tenantRequestHandler,
+    private <T extends ConfigInstance> ConfigResponse getConfigResponse(TenantRequestHandler tenantRequestHandler,
                                                                         ApplicationId appId,
-                                                                        Version vespaVersion,
-                                                                        String configId) {
+                                                                        Version vespaVersion) {
         return tenantRequestHandler.resolveConfig(appId, new GetConfigRequest() {
+            @SuppressWarnings("unchecked")
             @Override
             public ConfigKey<T> getConfigKey() {
-                return new ConfigKey<>(clazz, configId);
+                return new ConfigKey<>((Class<T>) SimpletypesConfig.class, "");
             }
 
             @Override
             public DefContent getDefContent() {
-                return DefContent.fromClass(clazz);
+                return DefContent.fromClass(SimpletypesConfig.class);
             }
 
             @Override
@@ -180,14 +178,14 @@ public class TenantRequestHandlerTest {
         server.reloadConfig(reloadConfig(1));
         assertThat(listener.reloaded.get(), is(1));
         // Using only payload list for this simple test
-    	SimpletypesConfig config = resolve(SimpletypesConfig.class, server, defaultApp(), vespaVersion, "");
+        SimpletypesConfig config = resolve(server, defaultApp(), vespaVersion);
         assertThat(config.intval(), is(1337));
         assertThat(server.getApplicationGeneration(applicationId, Optional.of(vespaVersion)), is(1L));
 
         server.reloadConfig(reloadConfig(1L));
-        ConfigResponse configResponse = getConfigResponse(SimpletypesConfig.class, server, defaultApp(), vespaVersion, "");
+        ConfigResponse configResponse = getConfigResponse(server, defaultApp(), vespaVersion);
         assertFalse(configResponse.isInternalRedeploy());
-        config = resolve(SimpletypesConfig.class, server, defaultApp(), vespaVersion, "");
+        config = resolve(server, defaultApp(), vespaVersion);
         assertThat(config.intval(), is(1337));
         assertThat(listener.reloaded.get(), is(2));
         assertThat(server.getApplicationGeneration(applicationId, Optional.of(vespaVersion)), is(1L));
@@ -198,9 +196,9 @@ public class TenantRequestHandlerTest {
         feedApp(app2, 2, defaultApp(), true);
         server.applications().createPutTransaction(applicationId, 2).commit();
         server.reloadConfig(reloadConfig(2L));
-        configResponse = getConfigResponse(SimpletypesConfig.class, server, defaultApp(), vespaVersion, "");
+        configResponse = getConfigResponse(server, defaultApp(), vespaVersion);
         assertTrue(configResponse.isInternalRedeploy());
-        config = resolve(SimpletypesConfig.class, server, defaultApp(), vespaVersion,"");
+        config = resolve(server, defaultApp(), vespaVersion);
         assertThat(config.intval(), is(1330));
         assertThat(listener.reloaded.get(), is(1));
         assertThat(server.getApplicationGeneration(applicationId, Optional.of(vespaVersion)), is(2L));
@@ -239,7 +237,7 @@ public class TenantRequestHandlerTest {
         zkc.writeApplicationId(appId);
         RemoteSession session = new RemoteSession(appId.tenant(), id, componentRegistry, zkc);
         server.reloadConfig(session.ensureApplicationLoaded());
-        SimpletypesConfig config = resolve(SimpletypesConfig.class, server, appId, vespaVersion, "");
+        SimpletypesConfig config = resolve(server, appId, vespaVersion);
         assertThat(config.intval(), is(1337));
     }
 
@@ -252,11 +250,11 @@ public class TenantRequestHandlerTest {
                               .tenant(tenant)
                               .applicationName("myapp2").instanceName("myinst2").build();
         feedAndReloadApp(app1, 1, appId1);
-        SimpletypesConfig config = resolve(SimpletypesConfig.class, server, appId1, vespaVersion, "");
+        SimpletypesConfig config = resolve(server, appId1, vespaVersion);
         assertThat(config.intval(), is(1337));
 
         feedAndReloadApp(app2, 2, appId2);
-        config = resolve(SimpletypesConfig.class, server, appId2, vespaVersion, "");
+        config = resolve(server, appId2, vespaVersion);
         assertThat(config.intval(), is(1330));
     }
 
@@ -266,9 +264,9 @@ public class TenantRequestHandlerTest {
                               .tenant(tenant)
                               .applicationName("myapp1").instanceName("myinst1").build();
         feedAndReloadApp(app1, 1, appId);
-        SimpletypesConfig config = resolve(SimpletypesConfig.class, server, appId, vespaVersion, "");
+        SimpletypesConfig config = resolve(server, appId, vespaVersion);
         assertThat(config.intval(), is(1337));
-        config = resolve(SimpletypesConfig.class, server, appId, new Version(3, 2, 1), "");
+        config = resolve(server, appId, new Version(3, 2, 1));
         assertThat(config.intval(), is(1337));
     }
 

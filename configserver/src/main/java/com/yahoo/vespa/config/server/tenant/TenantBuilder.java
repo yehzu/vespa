@@ -3,7 +3,6 @@ package com.yahoo.vespa.config.server.tenant;
 
 import com.yahoo.config.provision.ApplicationId;
 import com.yahoo.config.provision.TenantName;
-import com.yahoo.vespa.config.server.rpc.ConfigResponseFactory;
 import com.yahoo.vespa.config.server.GlobalComponentRegistry;
 import com.yahoo.vespa.config.server.host.HostValidator;
 import com.yahoo.vespa.config.server.RequestHandler;
@@ -112,7 +111,6 @@ public class TenantBuilder {
             TenantRequestHandler impl = new TenantRequestHandler(componentRegistry.getMetrics(),
                                                                  tenant,
                                                                  Collections.singletonList(componentRegistry.getReloadListener()),
-                                                                 ConfigResponseFactory.create(componentRegistry.getConfigserverConfig()),
                                                                  componentRegistry);
             this.hostValidator = impl;
             if (requestHandler == null) {
@@ -134,7 +132,6 @@ public class TenantBuilder {
                                                   reloadHandler,
                                                   tenant,
                                                   applicationRepo);
-
     }
 
     public TenantName getTenantName() { return tenant; }
