@@ -1,6 +1,7 @@
 // Copyright 2017 Yahoo Holdings. Licensed under the terms of the Apache 2.0 license. See LICENSE in the project root.
 package com.yahoo.search.query.parser;
 
+import com.yahoo.search.Query;
 import com.yahoo.search.query.QueryTree;
 
 /**
@@ -19,5 +20,7 @@ public interface Parser {
      * @return the parsed QueryTree, never null
      */
     QueryTree parse(Parsable query);
+
+    default QueryTree parse(Parsable parsable, Query query) { return parse(parsable); }
 
 }

@@ -234,6 +234,10 @@ public class YqlParser implements Parser {
 
     @Override
     public QueryTree parse(Parsable query) {
+        return parse(query, null);
+    }
+    @Override
+    public QueryTree parse(Parsable query, Query original) {
         indexFactsSession = indexFacts.newSession(query.getSources(), query.getRestrict());
         connectedItems.clear();
         groupingSteps.clear();
@@ -249,7 +253,11 @@ public class YqlParser implements Parser {
         docTypes = null;
         sorting = null;
         // queryParser set prior to calling this
-        return buildTree(parseYqlProgram());
+        var node = parseYqlProgram(original);
+        if (original != null) {
+            original.trace("parseYqlProgram done", 1);
+        }
+        return buildTree(node, original);
     }
 
     private void joinDocTypesFromUserQueryAndYql() {
@@ -264,7 +272,7 @@ public class YqlParser implements Parser {
         docTypes = new HashSet<>(indexFactsSession.documentTypes());
     }
 
-    private QueryTree buildTree(OperatorNode<?> filterPart) {
+    private QueryTree buildTree(OperatorNode<?> filterPart, Query original) {
         Preconditions.checkArgument(filterPart.getArguments().length == 2,
                                     "Expected 2 arguments to filter, got %s.",
                                     filterPart.getArguments().length);
@@ -705,7 +713,7 @@ public class YqlParser implements Parser {
         return item;
     }
 
-    private OperatorNode<?> parseYqlProgram() {
+    private OperatorNode<?> parseYqlProgram(Query original) {
         OperatorNode<?> ast;
         try {
             ast = new ProgramParser().parse("query", currentlyParsing.getQuery());
