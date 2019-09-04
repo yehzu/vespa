@@ -48,8 +48,9 @@ public class MinimalQueryInserter extends Searcher {
         parser.setUserQuery(query);
         QueryTree newTree;
         try {
-            newTree = parser.parse(Parsable.fromQueryModel(query.getModel())
-                                           .setQuery(query.properties().getString(YQL)));
+            Parsable parsable = Parsable.fromQueryModel(query.getModel()).setQuery(query.properties().getString(YQL));
+            query.trace("Parsable.fromQueryModel done", 1);
+            newTree = parser.parse(parsable);
         } catch (RuntimeException e) {
             return new Result(query, ErrorMessage.createInvalidQueryParameter(
                               "Could not instantiate query from YQL", e));
