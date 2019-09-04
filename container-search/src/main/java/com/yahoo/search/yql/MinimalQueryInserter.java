@@ -41,7 +41,9 @@ public class MinimalQueryInserter extends Searcher {
         if (query.properties().get(YQL) == null) return execution.search(query);
 
         ParserEnvironment env = ParserEnvironment.fromExecutionContext(execution.context());
+        query.trace("ParserEnvironment.fromExecutionContext done", 1);
         YqlParser parser = (YqlParser) ParserFactory.newInstance(Query.Type.YQL, env);
+        query.trace("ParserFactory.newInstance done", 1);
         parser.setQueryParser(false);
         parser.setUserQuery(query);
         QueryTree newTree;
@@ -52,6 +54,7 @@ public class MinimalQueryInserter extends Searcher {
             return new Result(query, ErrorMessage.createInvalidQueryParameter(
                               "Could not instantiate query from YQL", e));
         }
+        query.trace("parser.parse done", 1);
         if (parser.getOffset() != null) {
             int maxHits = query.properties().getInteger(MAX_HITS);
             int maxOffset = query.properties().getInteger(MAX_OFFSET);
