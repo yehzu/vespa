@@ -277,9 +277,18 @@ public class YqlParser implements Parser {
                                     "Expected 2 arguments to filter, got %s.",
                                     filterPart.getArguments().length);
         populateYqlSources(filterPart.<OperatorNode<?>> getArgument(0));
+        if (original != null) {
+            original.trace("populateYqlSources done", 1);
+        }
         OperatorNode<ExpressionOperator> filterExpression = filterPart.getArgument(1);
         Item root = convertExpression(filterExpression);
+        if (original != null) {
+            original.trace("convertExpression done", 1);
+        }
         connectItems();
+        if (original != null) {
+            original.trace("connectItems done", 1);
+        }
         userQuery = null;
         return new QueryTree(root);
     }
@@ -719,6 +728,9 @@ public class YqlParser implements Parser {
             ast = new ProgramParser().parse("query", currentlyParsing.getQuery());
         } catch (Exception e) {
             throw new IllegalArgumentException(e);
+        }
+        if (original != null) {
+            original.trace("ProgramParser().parse", 1);
         }
         assertHasOperator(ast, StatementOperator.PROGRAM);
         Preconditions.checkArgument(ast.getArguments().length == 1,
