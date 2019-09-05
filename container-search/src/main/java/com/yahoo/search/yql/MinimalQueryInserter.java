@@ -2,6 +2,7 @@
 package com.yahoo.search.yql;
 
 import com.google.common.annotations.Beta;
+import com.yahoo.language.Linguistics;
 import com.yahoo.search.Query;
 import com.yahoo.search.Result;
 import com.yahoo.search.Searcher;
@@ -36,11 +37,20 @@ public class MinimalQueryInserter extends Searcher {
     private static final CompoundName MAX_HITS = new CompoundName("maxHits");
     private static final CompoundName MAX_OFFSET = new CompoundName("maxOffset");
 
-    @Override
-    public Result search(Query query, Execution execution) {
-        if (query.properties().get(YQL) == null) return execution.search(query);
+    public MinimalQueryInserter() { }
 
-        ParserEnvironment env = ParserEnvironment.fromExecutionContext(execution.context());
+    private void warmup(Linguistics linguistics) {
+        Query query = new Query("search/?yql=select * from sources where title contains 'xyz';");
+        Result result = insertQuery(query, new ParserEnvironment().setLinguistics(linguistics));
+        if (result == null) {
+            throw new IllegalArgumentException("Something fishy.");
+        }
+        if ( ! "".equals(query.yqlRepresentation())) {
+            throw new IllegalArgumentException("Bad yql: " + query.yqlRepresentation());
+        }
+    }
+
+    private Result insertQuery(Query query, ParserEnvironment env) {
         query.trace("ParserEnvironment.fromExecutionContext done", 1);
         YqlParser parser = (YqlParser) ParserFactory.newInstance(Query.Type.YQL, env);
         query.trace("ParserFactory.newInstance done", 1);
@@ -53,7 +63,7 @@ public class MinimalQueryInserter extends Searcher {
             newTree = parser.parse(parsable, query);
         } catch (RuntimeException e) {
             return new Result(query, ErrorMessage.createInvalidQueryParameter(
-                              "Could not instantiate query from YQL", e));
+                    "Could not instantiate query from YQL", e));
         }
         query.trace("parser.parse done", 1);
         if (parser.getOffset() != null) {
@@ -61,13 +71,13 @@ public class MinimalQueryInserter extends Searcher {
             int maxOffset = query.properties().getInteger(MAX_OFFSET);
             if (parser.getOffset() > maxOffset) {
                 return new Result(query, ErrorMessage.createInvalidQueryParameter("Requested offset " + parser.getOffset()
-                                                                                  + ", but the max offset allowed is " + 
-                                                                                  maxOffset + "."));
+                        + ", but the max offset allowed is " +
+                        maxOffset + "."));
             }
             if (parser.getHits() > maxHits) {
                 return new Result(query, ErrorMessage.createInvalidQueryParameter("Requested " + parser.getHits()
-                                                                                  + " hits returned, but max hits allowed is " 
-                                                                                  + maxHits + "."));
+                        + " hits returned, but max hits allowed is "
+                        + maxHits + "."));
 
             }
         }
@@ -75,8 +85,8 @@ public class MinimalQueryInserter extends Searcher {
         query.getPresentation().getSummaryFields().addAll(parser.getYqlSummaryFields());
         for (VespaGroupingStep step : parser.getGroupingSteps()) {
             GroupingRequest.newInstance(query)
-                           .setRootOperation(step.getOperation())
-                           .continuations().addAll(step.continuations());
+                    .setRootOperation(step.getOperation())
+                    .continuations().addAll(step.continuations());
         }
         if (parser.getYqlSources().size() == 0) {
             query.getModel().getSources().clear();
@@ -94,7 +104,15 @@ public class MinimalQueryInserter extends Searcher {
             query.getRanking().setSorting(parser.getSorting());
         }
         query.trace("YQL+ query parsed", true, 2);
-        return execution.search(query);
+        return null;
+    }
+
+    @Override
+    public Result search(Query query, Execution execution) {
+        if (query.properties().get(YQL) == null) return execution.search(query);
+
+        Result result = insertQuery(query, ParserEnvironment.fromExecutionContext(execution.context()));
+        return (result == null) ? execution.search(query) : result;
     }
 
 }

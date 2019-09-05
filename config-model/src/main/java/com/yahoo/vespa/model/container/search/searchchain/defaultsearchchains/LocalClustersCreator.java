@@ -2,8 +2,6 @@
 package com.yahoo.vespa.model.container.search.searchchain.defaultsearchchains;
 
 import com.yahoo.component.ComponentId;
-import com.yahoo.component.ComponentSpecification;
-import com.yahoo.component.chain.Phase;
 import com.yahoo.component.chain.model.ChainSpecification;
 import com.yahoo.search.searchchain.model.federation.FederationOptions;
 import com.yahoo.search.searchchain.model.federation.LocalProviderSpec;
@@ -19,20 +17,20 @@ import java.util.Set;
  * @author Tony Vaagenes
  */
 public class LocalClustersCreator {
-    static ChainSpecification emptySearchChainSpecification(String componentName) {
+    private static ChainSpecification emptySearchChainSpecification(String componentName) {
         return new ChainSpecification(
                 new ComponentId(componentName),
                 VespaSearchChainsCreator.inheritsVespaPhases(), //TODO: refactor
-                Collections.<Phase>emptyList(),
-                Collections.<ComponentSpecification>emptySet());
+                Collections.emptyList(),
+                Collections.emptySet());
     }
 
-    static LocalProvider createDefaultLocalProvider(String clusterName) {
+    private static LocalProvider createDefaultLocalProvider(String clusterName) {
         return new LocalProvider(emptySearchChainSpecification(clusterName), new FederationOptions(),
                 new LocalProviderSpec(clusterName, null));
     }
 
-    static Set<String> presentClusters(SearchChains searchChains) {
+    private static Set<String> presentClusters(SearchChains searchChains) {
         Set<String> presentClusters = new LinkedHashSet<>();
         for (LocalProvider provider : searchChains.localProviders()) {
             presentClusters.add(provider.getClusterName());

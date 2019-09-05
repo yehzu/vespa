@@ -7,7 +7,14 @@ import com.yahoo.component.ComponentSpecification;
 import com.yahoo.component.chain.Phase;
 import net.jcip.annotations.Immutable;
 
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Specifies how the components should be selected to create a chain.
@@ -22,7 +29,7 @@ public class ChainSpecification {
         public final Set<ComponentSpecification> excludedComponents;
 
         Inheritance flattened() {
-            return new Inheritance(Collections.<ComponentSpecification>emptySet(), excludedComponents);
+            return new Inheritance(Collections.emptySet(), excludedComponents);
         }
 
         public Inheritance(Set<ComponentSpecification> inheritedChains, Set<ComponentSpecification> excludedComponents) {
@@ -40,7 +47,7 @@ public class ChainSpecification {
 
     public final ComponentId componentId;
     public final Inheritance inheritance;
-    final Map<String, Phase> phases;
+    private final Map<String, Phase> phases;
     public final Set<ComponentSpecification> componentReferences;
 
     public ChainSpecification(ComponentId componentId, Inheritance inheritance,
@@ -74,7 +81,7 @@ public class ChainSpecification {
         return new ChainSpecification(newComponentId, inheritance, phases(), componentReferences);
     }
 
-    public ChainSpecification flatten(Resolver<ChainSpecification> allChainSpecifications) {
+    ChainSpecification flatten(Resolver<ChainSpecification> allChainSpecifications) {
         Deque<ComponentId> path = new ArrayDeque<>();
         return flatten(allChainSpecifications, path);
     }

@@ -11,7 +11,12 @@ import com.yahoo.search.federation.FederationConfig;
 import com.yahoo.search.searchchain.model.federation.FederationSearcherModel.TargetSpec;
 import com.yahoo.vespa.model.container.component.Component;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Config producer for the FederationSearcher.
@@ -40,7 +45,7 @@ public class FederationSearcher extends Searcher<FederationSearcherModel> implem
             this.documentTypes = documentTypes;
         }
 
-        public FederationConfig.Target.SearchChain.Builder getSearchChainConfig() {
+        FederationConfig.Target.SearchChain.Builder getSearchChainConfig() {
             FederationConfig.Target.SearchChain.Builder sB = new FederationConfig.Target.SearchChain.Builder();
             FederationOptions resolvedOptions = targetOptions.inherit(searchChain.federationOptions());
             sB.
@@ -64,12 +69,12 @@ public class FederationSearcher extends Searcher<FederationSearcherModel> implem
         final ComponentId id;
         final FederationOptions targetOptions;
 
-        public Target(ComponentId id, FederationOptions targetOptions) {
+        Target(ComponentId id, FederationOptions targetOptions) {
             this.id = id;
             this.targetOptions = targetOptions;
         }
 
-        public FederationConfig.Target.Builder getTargetConfig() {
+        FederationConfig.Target.Builder getTargetConfig() {
             FederationConfig.Target.Builder tb = new FederationConfig.Target.Builder();
             tb.
                 id(id.stringValue()).
@@ -84,7 +89,7 @@ public class FederationSearcher extends Searcher<FederationSearcherModel> implem
     private static class SearchChainTarget extends Target {
         private final SearchChainConfig searchChainConfig;
 
-        public SearchChainTarget(SearchChain searchChain,
+        SearchChainTarget(SearchChain searchChain,
                                  FederationOptions targetOptions) {
             super(searchChain.getComponentId(), targetOptions);
             searchChainConfig = new SearchChainConfig(
@@ -102,17 +107,14 @@ public class FederationSearcher extends Searcher<FederationSearcherModel> implem
 
     private static class SourceGroupTarget extends Target {
         private final SearchChainConfig leaderConfig;
-        private final List<SearchChainConfig> participantsConfig =
-                new ArrayList<>();
+        private final List<SearchChainConfig> participantsConfig = new ArrayList<>();
 
-        public SourceGroupTarget(SourceGroup group,
-                                 FederationOptions targetOptions) {
+        SourceGroupTarget(SourceGroup group, FederationOptions targetOptions) {
             super(group.getComponentId(), applyDefaultSourceGroupOptions(targetOptions));
 
             leaderConfig = createConfig(group.leader(), targetOptions);
             for (Source participant : group.participants()) {
-                participantsConfig.add(
-                        createConfig(participant, targetOptions));
+                participantsConfig.add(createConfig(participant, targetOptions));
             }
         }
 
@@ -121,8 +123,7 @@ public class FederationSearcher extends Searcher<FederationSearcherModel> implem
             return targetOptions.inherit(defaultSourceGroupOption);
         }
 
-        private SearchChainConfig createConfig(Source source,
-                                               FederationOptions targetOptions) {
+        private SearchChainConfig createConfig(Source source, FederationOptions targetOptions) {
             return new SearchChainConfig(
                     source,
                     source.getParentProvider().getComponentId(),
@@ -163,17 +164,14 @@ public class FederationSearcher extends Searcher<FederationSearcherModel> implem
         }
 
 
-        TargetResolver(ComponentRegistry<SearchChain> searchChainRegistry,
-                       SourceGroupRegistry sourceGroupRegistry) {
+        TargetResolver(ComponentRegistry<SearchChain> searchChainRegistry, SourceGroupRegistry sourceGroupRegistry) {
             this.searchChainRegistry = searchChainRegistry;
             this.sourceGroupRegistry = sourceGroupRegistry;
         }
 
         Target resolve(FederationSearcherModel.TargetSpec specification) {
-            SearchChain searchChain = searchChainRegistry.getComponent(
-                    specification.sourceSpec);
-            SourceGroup sourceGroup = sourceGroupRegistry.getComponent(
-                    specification.sourceSpec);
+            SearchChain searchChain = searchChainRegistry.getComponent(specification.sourceSpec);
+            SourceGroup sourceGroup = sourceGroupRegistry.getComponent(specification.sourceSpec);
 
             if (searchChain == null && sourceGroup == null) {
                 return null;
@@ -186,8 +184,7 @@ public class FederationSearcher extends Searcher<FederationSearcherModel> implem
         }
     }
 
-    private final Map<ComponentId, Target> resolvedTargets =
-            new LinkedHashMap<>();
+    private final Map<ComponentId, Target> resolvedTargets = new LinkedHashMap<>();
 
     public FederationSearcher(FederationSearcherModel searcherModel, Optional<Component> targetSelector) {
         super(searcherModel);
@@ -213,10 +210,8 @@ public class FederationSearcher extends Searcher<FederationSearcherModel> implem
         initialize(getSearchChains().allChains(), getSearchChains().allSourceGroups());
     }
 
-    void initialize(ComponentRegistry<SearchChain> searchChainRegistry,
-                    SourceGroupRegistry sourceGroupRegistry) {
-        TargetResolver targetResolver = new TargetResolver(
-                searchChainRegistry, sourceGroupRegistry);
+    void initialize(ComponentRegistry<SearchChain> searchChainRegistry, SourceGroupRegistry sourceGroupRegistry) {
+        TargetResolver targetResolver = new TargetResolver(searchChainRegistry, sourceGroupRegistry);
 
         addSourceTargets(targetResolver, model.targets);
 
@@ -258,8 +253,7 @@ public class FederationSearcher extends Searcher<FederationSearcherModel> implem
 
 
     private static List<GenericTarget> defaultTargets(Collection<SearchChain> allSearchChains) {
-        Collection<Provider> providers =
-                CollectionUtil.filter(allSearchChains, Provider.class);
+        Collection<Provider> providers = CollectionUtil.filter(allSearchChains, Provider.class);
 
         List<GenericTarget> defaultTargets = new ArrayList<>();
         for (Provider provider : providers) {

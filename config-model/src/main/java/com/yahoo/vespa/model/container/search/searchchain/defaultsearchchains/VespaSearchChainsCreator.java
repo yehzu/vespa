@@ -9,10 +9,20 @@ import com.yahoo.component.chain.model.ChainedComponentModel;
 import com.yahoo.search.searchchain.PhaseNames;
 import com.yahoo.search.searchchain.model.VespaSearchers;
 import com.yahoo.search.searchchain.model.federation.FederationSearcherModel;
-import com.yahoo.vespa.model.container.component.Component;
-import com.yahoo.vespa.model.container.search.searchchain.*;
+import com.yahoo.vespa.model.container.search.searchchain.FederationSearcher;
+import com.yahoo.vespa.model.container.search.searchchain.SearchChain;
+import com.yahoo.vespa.model.container.search.searchchain.SearchChains;
+import com.yahoo.vespa.model.container.search.searchchain.Searcher;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
 
 /**
  * Creates the search chains vespaPhases, vespa and native.
@@ -34,17 +44,15 @@ public class VespaSearchChainsCreator {
             return new Phase(phase, set(before), null);
         }
 
-        public static Collection<Phase> linearPhases(String... phases) {
+        static Collection<Phase> linearPhases(String... phases) {
             List<Phase> result = new ArrayList<>();
 
             for (int i=0; i < phases.length - 1; ++i) {
-                result.add(
-                        createPhase(phases[i], phases[i+1]));
+                result.add(createPhase(phases[i], phases[i+1]));
             }
 
             if (phases.length > 0) {
-                result.add(
-                        createPhase(lastElement(phases), null));
+                result.add(createPhase(lastElement(phases), null));
             }
 
             return result;
@@ -60,9 +68,13 @@ public class VespaSearchChainsCreator {
     }
 
     private static ChainSpecification.Inheritance inherits(ComponentId chainId) {
+        return inherits(chainId, null);
+    }
+
+    private static ChainSpecification.Inheritance inherits(ComponentId chainId, Set<ComponentSpecification> excludedComponents) {
         Set<ComponentSpecification> inheritsSet = new LinkedHashSet<>();
         inheritsSet.add(chainId.toSpecification());
-        return new ChainSpecification.Inheritance(inheritsSet, null);
+        return new ChainSpecification.Inheritance(inheritsSet, excludedComponents);
     }
 
     static ChainSpecification.Inheritance inheritsVespaPhases() {
@@ -77,7 +89,7 @@ public class VespaSearchChainsCreator {
 
     private static Searcher<? extends ChainedComponentModel> createSearcher(ChainedComponentModel searcherModel) {
         if (searcherModel instanceof FederationSearcherModel) {
-            return new FederationSearcher((FederationSearcherModel) searcherModel, Optional.<Component>empty());
+            return new FederationSearcher((FederationSearcherModel) searcherModel, Optional.empty());
         } else {
             return new Searcher<>(searcherModel);
         }
@@ -96,6 +108,14 @@ public class VespaSearchChainsCreator {
         return new ChainSpecification(
                 new ComponentId("vespa"),
                 inherits(nativeSearchChainSpecification().componentId),
+                noPhases(),
+                noSearcherReferences());
+    }
+
+    private static ChainSpecification vespaWarmupSearchChainSpecification() {
+        return new ChainSpecification(
+                new ComponentId("vespaWarmup"),
+                inherits(vespaPhasesSpecification().componentId),
                 noPhases(),
                 noSearcherReferences());
     }
@@ -124,6 +144,15 @@ public class VespaSearchChainsCreator {
         return nativeChain;
     }
 
+    private static SearchChain createVespaWarmup() {
+        SearchChain chain = new SearchChain(vespaWarmupSearchChainSpecification());
+        Set<ChainedComponentModel> components = new LinkedHashSet<>();
+        components.addAll(VespaSearchers.vespaSearcherModels);
+        components.addAll(VespaSearchers.vespaWarmupSearcherModels);
+        addInnerSearchers(chain, components);
+        return chain;
+    }
+
     private static SearchChain createVespa() {
         SearchChain vespaChain = new SearchChain(vespaSearchChainSpecification());
         addInnerSearchers(vespaChain, VespaSearchers.vespaSearcherModels);
@@ -131,11 +160,9 @@ public class VespaSearchChainsCreator {
     }
 
     public static void addVespaSearchChains(SearchChains searchChains) {
-        searchChains.add(
-                createVespaPhases());
-        searchChains.add(
-                createNative());
-        searchChains.add(
-                createVespa());
+        searchChains.add(createVespaPhases());
+        searchChains.add(createNative());
+        searchChains.add(createVespa());
+        searchChains.add(createVespaWarmup());
     }
 }

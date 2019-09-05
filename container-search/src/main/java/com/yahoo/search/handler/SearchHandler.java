@@ -150,6 +150,7 @@ public class SearchHandler extends LoggingRequestHandler {
                                                             .setCallback(new MeanConnections()));
 
         this.hostResponseHeaderKey = hostResponseHeaderKey;
+        warmup();
     }
 
     /** @deprecated use the other constructor */
@@ -174,6 +175,10 @@ public class SearchHandler extends LoggingRequestHandler {
              queryProfileConfig,
              containerHttpConfig,
              new ExecutionFactory(chainsConfig, indexInfo, clusters, searchers, specialtokens, linguistics, renderers));
+    }
+
+    private void warmup() {
+        handle(HttpRequest.createTestRequest("search/?yql=select%20*%20from%20sources%20where%20title%20contains%20'xyz';&searchChain=vespaWarmup", com.yahoo.jdisc.http.HttpRequest.Method.GET));
     }
 
     private static int examineExecutor(Executor executor) {
