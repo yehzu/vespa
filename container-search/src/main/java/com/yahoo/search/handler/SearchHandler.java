@@ -78,7 +78,7 @@ public class SearchHandler extends LoggingRequestHandler {
 
     private static final CompoundName DETAILED_TIMING_LOGGING = new CompoundName("trace.timingDetails");
     private static final CompoundName FORCE_TIMESTAMPS = new CompoundName("trace.timestamps");
-    private static final int SEQUENTIAL_WARMUP_COUNT = 1000;
+    private static final int SEQUENTIAL_WARMUP_COUNT = 2000;
 
 
     /** Event name for number of connections to the search subsystem */
@@ -191,7 +191,7 @@ public class SearchHandler extends LoggingRequestHandler {
         int numThreadsToWarmUp = Runtime.getRuntime().availableProcessors();
         AtomicLong conplete = new AtomicLong(0);
         warmupN(SEQUENTIAL_WARMUP_COUNT, conplete);
-        for (int i = 0; i < Runtime.getRuntime().availableProcessors(); i++) {
+        for (int i = 0; i < numThreadsToWarmUp; i++) {
             executor.execute(() -> warmupN(SEQUENTIAL_WARMUP_COUNT, conplete));
         }
         while (conplete.get() != SEQUENTIAL_WARMUP_COUNT * (1 + numThreadsToWarmUp)) {
@@ -199,7 +199,7 @@ public class SearchHandler extends LoggingRequestHandler {
                 Thread.sleep(100);
             } catch (InterruptedException e) {}
         }
-        log.info("Warmup complete");
+        log.info("Warmup complete in " + numThreadsToWarmUp + " threads.");
     }
     private void warmupN(int count, AtomicLong done) {
         for (int i = 0; i < count; i++) {
