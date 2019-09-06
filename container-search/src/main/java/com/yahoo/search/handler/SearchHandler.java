@@ -182,11 +182,10 @@ public class SearchHandler extends LoggingRequestHandler {
 
     private void warmup(Executor executor) {
         HttpResponse response = handle(HttpRequest.createTestRequest("search/?yql=select%20*%20from%20sources%20where%20title%20contains%20'xyz';&searchChain=vespaWarmup", com.yahoo.jdisc.http.HttpRequest.Method.GET));
-        OutputStream out = new ByteArrayOutputStream();
-        try {
-            response.render(out);
-        } catch (IOException e) { }
-        log.info("Warmup response = " + out.toString());
+        if (response instanceof HttpSearchResponse) {
+            HttpSearchResponse searchResponse = (HttpSearchResponse) response;
+            log.info("Warmup response = " + searchResponse.getResult().toString());
+        }
         warmupN(SEQUENTIAL_WARMUP_COUNT);
         for (int i = 0; i < Runtime.getRuntime().availableProcessors(); i++) {
             executor.execute(() -> warmupN(SEQUENTIAL_WARMUP_COUNT));
