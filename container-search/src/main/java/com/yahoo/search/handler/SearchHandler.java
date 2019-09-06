@@ -188,7 +188,7 @@ public class SearchHandler extends LoggingRequestHandler {
             log.info("Warmup response = " + searchResponse.getResult().toString());
             log.info("Warmup trace = " + searchResponse.getQuery().getContext(false).getTrace().toString());
         }
-        int numThreadsToWarmUp = 100;
+        int numThreadsToWarmUp = Runtime.getRuntime().availableProcessors();
         AtomicLong conplete = new AtomicLong(0);
         warmupN(SEQUENTIAL_WARMUP_COUNT, conplete);
         for (int i = 0; i < numThreadsToWarmUp; i++) {
