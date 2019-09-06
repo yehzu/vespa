@@ -75,6 +75,7 @@ public class SearchHandler extends LoggingRequestHandler {
 
     private static final CompoundName DETAILED_TIMING_LOGGING = new CompoundName("trace.timingDetails");
     private static final CompoundName FORCE_TIMESTAMPS = new CompoundName("trace.timestamps");
+    private static final int SEQUENTIAL_WARMUP_COUNT = 100;
 
 
     /** Event name for number of connections to the search subsystem */
@@ -150,7 +151,7 @@ public class SearchHandler extends LoggingRequestHandler {
                                                             .setCallback(new MeanConnections()));
 
         this.hostResponseHeaderKey = hostResponseHeaderKey;
-        warmup();
+        warmup(executor);
     }
 
     /** @deprecated use the other constructor */
@@ -177,8 +178,18 @@ public class SearchHandler extends LoggingRequestHandler {
              new ExecutionFactory(chainsConfig, indexInfo, clusters, searchers, specialtokens, linguistics, renderers));
     }
 
-    private void warmup() {
-        handle(HttpRequest.createTestRequest("search/?yql=select%20*%20from%20sources%20where%20title%20contains%20'xyz';&searchChain=vespaWarmup", com.yahoo.jdisc.http.HttpRequest.Method.GET));
+    private void warmup(Executor executor) {
+        HttpResponse response = handle(HttpRequest.createTestRequest("search/?yql=select%20*%20from%20sources%20where%20title%20contains%20'xyz';&searchChain=vespaWarmup", com.yahoo.jdisc.http.HttpRequest.Method.GET));
+        warmupN(SEQUENTIAL_WARMUP_COUNT);
+        for (int i = 0; i < Runtime.getRuntime().availableProcessors(); i++) {
+            executor.execute(() -> warmupN(SEQUENTIAL_WARMUP_COUNT));
+        }
+
+    }
+    private void warmupN(int count) {
+        for (int i = 0; i < count; i++) {
+            handle(HttpRequest.createTestRequest("search/?yql=select%20*%20from%20sources%20where%20title%20contains%20'xyz';&searchChain=vespaWarmup", com.yahoo.jdisc.http.HttpRequest.Method.GET));
+        }
     }
 
     private static int examineExecutor(Executor executor) {
