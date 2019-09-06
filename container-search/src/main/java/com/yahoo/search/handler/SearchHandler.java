@@ -60,6 +60,7 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -187,14 +188,23 @@ public class SearchHandler extends LoggingRequestHandler {
             log.info("Warmup response = " + searchResponse.getResult().toString());
             log.info("Warmup trace = " + searchResponse.getQuery().getContext(false).getTrace().toString());
         }
-        warmupN(SEQUENTIAL_WARMUP_COUNT);
+        int numThreadsToWarmUp = Runtime.getRuntime().availableProcessors();
+        AtomicLong conplete = new AtomicLong(0);
+        warmupN(SEQUENTIAL_WARMUP_COUNT, conplete);
         for (int i = 0; i < Runtime.getRuntime().availableProcessors(); i++) {
-            executor.execute(() -> warmupN(SEQUENTIAL_WARMUP_COUNT));
+            executor.execute(() -> warmupN(SEQUENTIAL_WARMUP_COUNT, conplete));
         }
+        while (conplete.get() != SEQUENTIAL_WARMUP_COUNT * (1 + numThreadsToWarmUp)) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {}
+        }
+        log.info("Warmup complete");
     }
-    private void warmupN(int count) {
+    private void warmupN(int count, AtomicLong done) {
         for (int i = 0; i < count; i++) {
             handle(HttpRequest.createTestRequest("search/?yql=select%20*%20from%20sources%20where%20title%20contains%20'xyz';&searchChain=vespaWarmup", com.yahoo.jdisc.http.HttpRequest.Method.GET));
+            done.incrementAndGet();
         }
     }
 
