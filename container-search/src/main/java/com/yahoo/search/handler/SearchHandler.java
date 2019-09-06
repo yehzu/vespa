@@ -78,7 +78,7 @@ public class SearchHandler extends LoggingRequestHandler {
 
     private static final CompoundName DETAILED_TIMING_LOGGING = new CompoundName("trace.timingDetails");
     private static final CompoundName FORCE_TIMESTAMPS = new CompoundName("trace.timestamps");
-    private static final int SEQUENTIAL_WARMUP_COUNT = 100;
+    private static final int SEQUENTIAL_WARMUP_COUNT = 1000;
 
 
     /** Event name for number of connections to the search subsystem */
